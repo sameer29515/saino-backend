@@ -1,0 +1,26 @@
+{
+  "name": "saino-backend",
+  "version": "1.0.0",
+  "description": "",
+  "homepage": "https://github.com/SAINO-CORP-HEALTH/saino-backend#readme",
+  "bugs": {
+    "url": "https://github.com/SAINO-CORP-HEALTH/saino-backend/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SAINO-CORP-HEALTH/saino-backend.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.9.1",
+    "nodemon": "^3.1.14"
+  }
+}
