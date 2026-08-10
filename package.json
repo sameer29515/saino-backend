@@ -1,7 +1,7 @@
 {
   "name": "saino-backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "Express + MongoDB (Mongoose) backend for the Saino healthcare partner directory.",
   "homepage": "https://github.com/SAINO-CORP-HEALTH/saino-backend#readme",
   "bugs": {
     "url": "https://github.com/SAINO-CORP-HEALTH/saino-backend/issues"
@@ -15,14 +15,20 @@
   "type": "commonjs",
   "main": "index.js",
   "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "seed:admin": "node Scripts/seedAdmin.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
+    "bcryptjs": "^2.4.3",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.9.1",
-    "nodemon": "^3.1.14"
+    "multer": "^2.2.0",
+    "nodemon": "^3.1.14",
+    "path": "^0.12.7"
   }
 }

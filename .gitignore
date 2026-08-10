@@ -3,6 +3,11 @@ node_modules/
 .env.*
 !.env.example
 
+Uploads/logos/*
+Uploads/documents/*
+!Uploads/logos/.gitkeep
+!Uploads/documents/.gitkeep
+
 logs/
 *.log
 
