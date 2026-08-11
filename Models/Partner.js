@@ -1,17 +1,3 @@
-const mongoose = require("mongoose");
-const bcrypt = require("bcryptjs");
-const { PROVIDER_TYPES, SERVICE_TYPES, PARTNER_STATUS } = require("../Utils/constants");
-
-const branchSchema = new mongoose.Schema(
-  {
-    address: { type: String, trim: true },
-    city: { type: String, trim: true },
-    district: { type: String, trim: true },
-    province: { type: String, trim: true },
-  },
-  { _id: false }
-);
-
 const partnerSchema = new mongoose.Schema(
   {
     // ---- Basic Info ----
@@ -25,7 +11,7 @@ const partnerSchema = new mongoose.Schema(
     },
     password: { type: String, required: [true, "Password is required"], select: false },
     phone: { type: String, required: [true, "Phone is required"], trim: true },
-    logo: { type: String, default: "" }, // path/url to uploaded logo
+    logo: { type: String, default: "" },
     website: { type: String, default: "", trim: true },
     about: { type: String, default: "", trim: true },
     providerType: {
@@ -34,11 +20,19 @@ const partnerSchema = new mongoose.Schema(
       required: [true, "Provider type is required"],
     },
 
+    // ✅ **NEW: Country Field (Phase 1 - Nepal, India, UAE)**
+    country: {
+      type: String,
+      enum: ['Nepal', 'India', 'UAE'],
+      default: 'Nepal',
+      required: [true, "Country is required"],
+    },
+
     // ---- Verification ----
     verification: {
       registrationNumber: { type: String, default: "" },
       licenseNumber: { type: String, default: "" },
-      documents: [{ type: String }], // uploaded file paths
+      documents: [{ type: String }],
     },
 
     // ---- Location ----
@@ -53,6 +47,22 @@ const partnerSchema = new mongoose.Schema(
     // ---- Services ----
     services: [{ type: String, enum: SERVICE_TYPES }],
 
+    // ---- Subscription Model (Phase 1) ----
+    subscription: {
+      plan: { type: String, enum: ['free', 'basic', 'premium', 'enterprise'], default: 'free' },
+      startDate: { type: Date, default: null },
+      endDate: { type: Date, default: null },
+      isActive: { type: Boolean, default: true },
+    },
+
+    // ---- Marketplace Fields ----
+    marketplace: {
+      searchKeywords: [{ type: String }],
+      rating: { type: Number, default: 0, min: 0, max: 5 },
+      reviews: { type: Number, default: 0 },
+      views: { type: Number, default: 0 },
+    },
+
     // ---- Listing lifecycle ----
     status: { type: String, enum: PARTNER_STATUS, default: "draft" },
     isVerified: { type: Boolean, default: false },
@@ -64,24 +74,28 @@ const partnerSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Hash password before saving, only if it was modified
-partnerSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
+// ---- Indexes for Search Performance ----
+partnerSchema.index({ name: 'text', about: 'text', 'location.city': 'text' });
+partnerSchema.index({ country: 1, status: 1, isPublished: 1 });
+partnerSchema.index({ providerType: 1, 'location.city': 1 });
+
+// Hash password before saving
+partnerSchema.pre("save", async function () {
+  if (!this.isModified("password")) return;
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
-  next();
 });
 
 partnerSchema.methods.matchPassword = async function (enteredPassword) {
   return bcrypt.compare(enteredPassword, this.password);
 };
 
-// Helper: is this partner's profile complete enough to submit for approval?
 partnerSchema.methods.isProfileComplete = function () {
   return Boolean(
     this.name &&
       this.phone &&
       this.providerType &&
+      this.country &&
       this.location &&
       this.location.address &&
       this.location.city &&
