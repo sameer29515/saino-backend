@@ -1,3 +1,17 @@
+const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
+const { PROVIDER_TYPES, SERVICE_TYPES, PARTNER_STATUS } = require("../Utils/constants");
+
+const branchSchema = new mongoose.Schema(
+  {
+    address: { type: String, trim: true },
+    city: { type: String, trim: true },
+    district: { type: String, trim: true },
+    province: { type: String, trim: true },
+  },
+  { _id: false }
+);
+
 const partnerSchema = new mongoose.Schema(
   {
     // ---- Basic Info ----
@@ -20,12 +34,11 @@ const partnerSchema = new mongoose.Schema(
       required: [true, "Provider type is required"],
     },
 
-    // ✅ **NEW: Country Field (Phase 1 - Nepal, India, UAE)**
+    // ---- Country (Phase 1 - Nepal, India, UAE) ----
     country: {
       type: String,
       enum: ['Nepal', 'India', 'UAE'],
       default: 'Nepal',
-      required: [true, "Country is required"],
     },
 
     // ---- Verification ----
@@ -47,7 +60,7 @@ const partnerSchema = new mongoose.Schema(
     // ---- Services ----
     services: [{ type: String, enum: SERVICE_TYPES }],
 
-    // ---- Subscription Model (Phase 1) ----
+    // ---- Subscription Model ----
     subscription: {
       plan: { type: String, enum: ['free', 'basic', 'premium', 'enterprise'], default: 'free' },
       startDate: { type: Date, default: null },

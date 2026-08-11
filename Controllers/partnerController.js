@@ -12,11 +12,11 @@ exports.getMyProfile = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, data: partner });
 });
 
-// @desc    Update basic profile info
+// @desc    Update basic profile info (✅ COMPLETE FIX)
 // @route   PUT /api/partner/profile
 // @access  Private (partner)
 exports.updateProfile = asyncHandler(async (req, res) => {
-  const { name, phone, website, about, providerType } = req.body;
+  const { name, phone, website, about, providerType, location, services } = req.body;
 
   if (providerType && !PROVIDER_TYPES.includes(providerType)) {
     throw new ApiError(400, `providerType must be one of: ${PROVIDER_TYPES.join(", ")}`);
@@ -26,7 +26,6 @@ exports.updateProfile = asyncHandler(async (req, res) => {
   if (!partner) throw new ApiError(404, "Partner not found");
 
   if (partner.status === "approved" || partner.status === "pending") {
-    // Editing after submission should require re-review by admin
     partner.status = "pending";
     partner.isPublished = false;
   }
@@ -36,6 +35,24 @@ exports.updateProfile = asyncHandler(async (req, res) => {
   if (website !== undefined) partner.website = website;
   if (about !== undefined) partner.about = about;
   if (providerType !== undefined) partner.providerType = providerType;
+
+  // ✅ Location update
+  if (location) {
+    partner.location = {
+      address: location.address || partner.location.address,
+      city: location.city || partner.location.city,
+      district: location.district || partner.location.district,
+      province: location.province || partner.location.province,
+    };
+  }
+
+  // ✅ Services update
+  if (services && Array.isArray(services) && services.length > 0) {
+    const invalid = services.filter((s) => !SERVICE_TYPES.includes(s));
+    if (invalid.length === 0) {
+      partner.services = [...new Set(services)];
+    }
+  }
 
   await partner.save();
   res.status(200).json({ success: true, message: "Profile updated", data: partner });
@@ -91,13 +108,13 @@ exports.updateLocation = asyncHandler(async (req, res) => {
   if (!partner) throw new ApiError(404, "Partner not found");
 
   partner.location = {
-    address: address ?? partner.location.address,//Use the new value if it is not null or undefined; otherwise, keep the existing value.
+    address: address ?? partner.location.address,
     city: city ?? partner.location.city,
     district: district ?? partner.location.district,
     province: province ?? partner.location.province,
   };
 
-  if (Array.isArray(branches)) {//This checks whether branches is actually an array
+  if (Array.isArray(branches)) {
     partner.branches = branches;
   }
 
