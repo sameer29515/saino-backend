@@ -1,13 +1,13 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
-// ✅ Use DATABASE_URL for production, fallback to individual variables
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  ssl: {
+    rejectUnauthorized: false,
+  },
 });
 
-// Test connection
 pool.connect((err, client, release) => {
   if (err) {
     console.error('❌ PostgreSQL connection failed:', err.message);
