@@ -1,41 +1,43 @@
-// One-time script to create the first Super Admin account.
-// Usage: node Scripts/seedAdmin.js
-//
-// Reads credentials from env vars so you don't hardcode secrets:
-//   SEED_ADMIN_NAME, SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD
-// Falls back to sensible defaults for local dev if not set.
+const pool = require("../Config/db");
+const bcrypt = require("bcryptjs");
+require("dotenv").config();
 
-const dotenv = require("dotenv");
-dotenv.config();
+const seedAdmin = async () => {
+  try {
+    const email = process.env.SEED_ADMIN_EMAIL || "admin@saino.com";
+    const password = process.env.SEED_ADMIN_PASSWORD || "admin123";
+    const name = "Saino Super Admin";
 
-const connectDB = require("../Config/db");
-const Admin = require("../Models/Admin");
-const mongoose = require("mongoose");
+    // Check if admin already exists
+    const existing = await pool.query(
+      "SELECT * FROM admins WHERE email = $1",
+      [email]
+    );
 
-const run = async () => {
-  await connectDB();
+    if (existing.rows.length > 0) {
+      console.log(`✅ Admin with email "${email}" already exists. Nothing to do.`);
+      process.exit(0);
+    }
 
-  const name = process.env.SEED_ADMIN_NAME || "Saino Super Admin";
-  const email = (process.env.SEED_ADMIN_EMAIL || "admin@saino.com").toLowerCase();
-  const password = process.env.SEED_ADMIN_PASSWORD || "ChangeMe123!";
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-  const existing = await Admin.findOne({ email });
-  if (existing) {
-    console.log(`Admin with email "${email}" already exists. Nothing to do.`);
-    await mongoose.disconnect();
+    // Insert admin
+    const result = await pool.query(
+      `INSERT INTO admins (name, email, password, role) 
+       VALUES ($1, $2, $3, $4) 
+       RETURNING id, name, email, role`,
+      [name, email, hashedPassword, "superadmin"]
+    );
+
+    console.log("✅ Super admin created successfully:");
+    console.log(`  email: ${result.rows[0].email}`);
+    console.log(`  password: ${password}  (please change this after first login)`);
     process.exit(0);
+  } catch (error) {
+    console.error("❌ Failed to seed admin:", error.message);
+    process.exit(1);
   }
-
-  const admin = await Admin.create({ name, email, password, role: "superadmin" });
-  console.log("Super admin created successfully:");
-  console.log(`  email: ${admin.email}`);
-  console.log(`  password: ${password}  (please change this after first login)`);
-
-  await mongoose.disconnect();
-  process.exit(0);
 };
 
-run().catch((err) => {
-  console.error("Failed to seed admin:", err);
-  process.exit(1);
-});
+seedAdmin();

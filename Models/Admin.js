@@ -1,31 +1,24 @@
-const mongoose = require("mongoose");
-const bcrypt = require("bcryptjs");
+const pool = require('../Config/db');
+const bcrypt = require('bcryptjs');
 
-const adminSchema = new mongoose.Schema(
-  {
-    name: { type: String, required: true, trim: true },
-    email: {
-      type: String,
-      required: true,
-      unique: true,
-      lowercase: true,
-      trim: true,
-    },
-    password: { type: String, required: true, select: false },
-    role: { type: String, enum: ["admin", "superadmin"], default: "admin" },
+const Admin = {
+  // Find by email
+  findByEmail: async (email) => {
+    const result = await pool.query('SELECT * FROM admins WHERE email = $1', [email]);
+    return result.rows[0];
   },
-  { timestamps: true }
-);
 
-adminSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
-  next();
-});
-
-adminSchema.methods.matchPassword = async function (enteredPassword) {
-  return bcrypt.compare(enteredPassword, this.password);
+  // Create admin
+  create: async (data) => {
+    const { name, email, password, role } = data;
+    const result = await pool.query(
+      `INSERT INTO admins (name, email, password, role) 
+       VALUES ($1, $2, $3, $4) 
+       RETURNING *`,
+      [name, email, password, role || 'admin']
+    );
+    return result.rows[0];
+  }
 };
 
-module.exports = mongoose.model("Admin", adminSchema);
+module.exports = Admin;

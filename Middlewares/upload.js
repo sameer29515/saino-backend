@@ -2,9 +2,10 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 
-// Ensure upload directories exist
-const logoDir = path.join(__dirname, "..", "Uploads", "logos");
-const docDir = path.join(__dirname, "..", "Uploads", "documents");
+// Lowercase 'uploads' to prevent case-sensitivity issues on Linux servers
+const logoDir = path.join(__dirname, "..", "uploads", "logos");
+const docDir = path.join(__dirname, "..", "uploads", "documents");
+
 [logoDir, docDir].forEach((dir) => {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });

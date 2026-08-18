@@ -1,120 +1,115 @@
-const mongoose = require("mongoose");
-const bcrypt = require("bcryptjs");
-const { PROVIDER_TYPES, SERVICE_TYPES, PARTNER_STATUS } = require("../Utils/constants");
+const pool = require('../Config/db');
+const bcrypt = require('bcryptjs');
 
-const branchSchema = new mongoose.Schema(
-  {
-    address: { type: String, trim: true },
-    city: { type: String, trim: true },
-    district: { type: String, trim: true },
-    province: { type: String, trim: true },
+const Partner = {
+  // Find by email
+  findByEmail: async (email) => {
+    const result = await pool.query('SELECT * FROM partners WHERE email = $1', [email]);
+    return result.rows[0];
   },
-  { _id: false }
-);
 
-const partnerSchema = new mongoose.Schema(
-  {
-    // ---- Basic Info ----
-    name: { type: String, required: [true, "Name is required"], trim: true },
-    email: {
-      type: String,
-      required: [true, "Email is required"],
-      unique: true,
-      lowercase: true,
-      trim: true,
-    },
-    password: { type: String, required: [true, "Password is required"], select: false },
-    phone: { type: String, required: [true, "Phone is required"], trim: true },
-    logo: { type: String, default: "" },
-    website: { type: String, default: "", trim: true },
-    about: { type: String, default: "", trim: true },
-    providerType: {
-      type: String,
-      enum: PROVIDER_TYPES,
-      required: [true, "Provider type is required"],
-    },
-
-    // ---- Country (Phase 1 - Nepal, India, UAE) ----
-    country: {
-      type: String,
-      enum: ['Nepal', 'India', 'UAE'],
-      default: 'Nepal',
-    },
-
-    // ---- Verification ----
-    verification: {
-      registrationNumber: { type: String, default: "" },
-      licenseNumber: { type: String, default: "" },
-      documents: [{ type: String }],
-    },
-
-    // ---- Location ----
-    location: {
-      address: { type: String, default: "" },
-      city: { type: String, default: "" },
-      district: { type: String, default: "" },
-      province: { type: String, default: "" },
-    },
-    branches: [branchSchema],
-
-    // ---- Services ----
-    services: [{ type: String, enum: SERVICE_TYPES }],
-
-    // ---- Subscription Model ----
-    subscription: {
-      plan: { type: String, enum: ['free', 'basic', 'premium', 'enterprise'], default: 'free' },
-      startDate: { type: Date, default: null },
-      endDate: { type: Date, default: null },
-      isActive: { type: Boolean, default: true },
-    },
-
-    // ---- Marketplace Fields ----
-    marketplace: {
-      searchKeywords: [{ type: String }],
-      rating: { type: Number, default: 0, min: 0, max: 5 },
-      reviews: { type: Number, default: 0 },
-      views: { type: Number, default: 0 },
-    },
-
-    // ---- Listing lifecycle ----
-    status: { type: String, enum: PARTNER_STATUS, default: "draft" },
-    isVerified: { type: Boolean, default: false },
-    isPublished: { type: Boolean, default: false },
-    rejectionReason: { type: String, default: "" },
-    submittedAt: { type: Date, default: null },
-    reviewedAt: { type: Date, default: null },
+  // Find by ID
+  findById: async (id) => {
+    const result = await pool.query('SELECT * FROM partners WHERE id = $1', [id]);
+    return result.rows[0];
   },
-  { timestamps: true }
-);
 
-// ---- Indexes for Search Performance ----
-partnerSchema.index({ name: 'text', about: 'text', 'location.city': 'text' });
-partnerSchema.index({ country: 1, status: 1, isPublished: 1 });
-partnerSchema.index({ providerType: 1, 'location.city': 1 });
+  // Create new partner
+  create: async (data) => {
+    const { name, email, password, phone, providerType } = data;
+    const result = await pool.query(
+      `INSERT INTO partners (name, email, password, phone, provider_type, status) 
+       VALUES ($1, $2, $3, $4, $5, 'pending') 
+       RETURNING *`,
+      [name, email, password, phone, providerType]
+    );
+    return result.rows[0];
+  },
 
-// Hash password before saving
-partnerSchema.pre("save", async function () {
-  if (!this.isModified("password")) return;
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
-});
+  // Update partner
+  update: async (id, data) => {
+    const fields = [];
+    const values = [];
+    let index = 1;
 
-partnerSchema.methods.matchPassword = async function (enteredPassword) {
-  return bcrypt.compare(enteredPassword, this.password);
+    if (data.name) { fields.push(`name = $${index}`); values.push(data.name); index++; }
+    if (data.phone) { fields.push(`phone = $${index}`); values.push(data.phone); index++; }
+    if (data.website) { fields.push(`website = $${index}`); values.push(data.website); index++; }
+    if (data.about) { fields.push(`about = $${index}`); values.push(data.about); index++; }
+    if (data.providerType) { fields.push(`provider_type = $${index}`); values.push(data.providerType); index++; }
+    if (data.status) { fields.push(`status = $${index}`); values.push(data.status); index++; }
+
+    values.push(id);
+    const query = `UPDATE partners SET ${fields.join(', ')} WHERE id = $${index} RETURNING *`;
+    const result = await pool.query(query, values);
+    return result.rows[0];
+  },
+
+  // Get all approved partners
+  findApproved: async () => {
+    const result = await pool.query(
+      'SELECT * FROM partners WHERE status = $1 AND is_published = $2',
+      ['approved', true]
+    );
+    return result.rows;
+  },
+
+  // Search partners with filters
+  search: async (filters) => {
+    let query = 'SELECT * FROM partners WHERE status = $1 AND is_published = $2';
+    let values = ['approved', true];
+    let index = 3;
+
+    // Add filters
+    if (filters.country) {
+      query += ` AND country = $${index}`;
+      values.push(filters.country);
+      index++;
+    }
+
+    if (filters.city) {
+      query += ` AND city = $${index}`;
+      values.push(filters.city);
+      index++;
+    }
+
+    if (filters.providerType) {
+      query += ` AND provider_type = $${index}`;
+      values.push(filters.providerType);
+      index++;
+    }
+
+    if (filters.search) {
+      query += ` AND (name ILIKE $${index} OR about ILIKE $${index})`;
+      values.push(`%${filters.search}%`);
+      index++;
+    }
+
+    const result = await pool.query(query, values);
+    return result.rows;
+  },
+
+  // Update status
+  updateStatus: async (id, status) => {
+    const result = await pool.query(
+      'UPDATE partners SET status = $1, is_published = $2 WHERE id = $3 RETURNING *',
+      [status, status === 'approved', id]
+    );
+    return result.rows[0];
+  },
+
+  // Check if profile is complete
+  isProfileComplete: async (id) => {
+    const result = await pool.query(
+      `SELECT * FROM partners WHERE id = $1 
+       AND name IS NOT NULL 
+       AND phone IS NOT NULL 
+       AND provider_type IS NOT NULL 
+       AND country IS NOT NULL`,
+      [id]
+    );
+    return result.rows.length > 0;
+  }
 };
 
-partnerSchema.methods.isProfileComplete = function () {
-  return Boolean(
-    this.name &&
-      this.phone &&
-      this.providerType &&
-      this.country &&
-      this.location &&
-      this.location.address &&
-      this.location.city &&
-      this.services &&
-      this.services.length > 0
-  );
-};
-
-module.exports = mongoose.model("Partner", partnerSchema);
+module.exports = Partner;
