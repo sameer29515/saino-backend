@@ -32,16 +32,16 @@ app.get("/", (req, res) => {
   res.status(200).json({ success: true, message: "Saino API is running" });
 });
 
-// ---- Public partner profile by ID (no auth) — must be BEFORE partnerRoutes ----
-const { getPartnerById } = require("./Controllers/partnerController");
-app.get("/api/partner/:id", getPartnerById);
-app.get("/api/public/partner/:id", getPartnerById);
-
 // ---- API Routes ----
 app.use("/api/admin", adminRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/partner", partnerRoutes);
 app.use("/api/public", publicRoutes);
+
+// Public partner profile by ID must be registered after protected partner routes.
+// Otherwise /api/partner/dashboard is captured as id="dashboard".
+const { getPartnerById } = require("./Controllers/partnerController");
+app.get("/api/partner/:id", getPartnerById);
 
 // ---- 404 + error handling ----
 app.use(notFound);

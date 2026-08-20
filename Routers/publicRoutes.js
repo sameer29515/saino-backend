@@ -6,7 +6,9 @@ const pool = require("../Config/db");
 router.get("/partners", async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT * FROM partners ORDER BY id DESC`
+      `SELECT * FROM partners
+       WHERE status = 'approved' AND COALESCE(is_published, true) = true
+       ORDER BY id DESC`
     );
 
     console.log("DB se kitne partners mile:", result.rows.length);

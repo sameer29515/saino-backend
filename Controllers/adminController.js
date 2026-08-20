@@ -68,3 +68,21 @@ exports.updatePartnerStatus = async (req, res) => {
     res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 };
+
+// 4. Delete Partner
+exports.deletePartner = async (req, res) => {
+  try {
+    const result = await pool.query(
+      "DELETE FROM partners WHERE id = $1 RETURNING id",
+      [req.params.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: "Partner not found" });
+    }
+
+    res.json({ success: true, message: "Partner deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};

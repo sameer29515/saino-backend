@@ -6,6 +6,7 @@ const {
   updateProfile,
   uploadLogo,
   uploadVerificationDocuments,
+  updatePricing,
   updateLocation,
   updateServices,
   submitForApproval,
@@ -22,6 +23,7 @@ router.get("/profile", protect, authorize("partner"), getMyProfile);
 router.put("/profile", protect, authorize("partner"), updateProfile);
 router.post("/profile/logo", protect, authorize("partner"), uploadLogoMiddleware, uploadLogo);
 router.post("/verification/documents", protect, authorize("partner"), uploadDocuments, uploadVerificationDocuments);
+router.post("/pricing", protect, authorize("partner"), updatePricing);
 router.put("/location", protect, authorize("partner"), updateLocation);
 router.put("/services", protect, authorize("partner"), updateServices);
 router.post("/submit", protect, authorize("partner"), submitForApproval);

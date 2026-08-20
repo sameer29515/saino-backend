@@ -4,6 +4,7 @@ const {
   adminLogin,
   getAllPartners,
   updatePartnerStatus,
+  deletePartner,
 } = require("../Controllers/adminController");
 const { protect, authorize } = require("../Middlewares/auth");
 
@@ -15,5 +16,6 @@ router.use(protect, authorize("admin", "superadmin"));
 
 router.get("/partners", getAllPartners);
 router.put("/partners/:id/status", updatePartnerStatus);
+router.delete("/partners/:id", deletePartner);
 
 module.exports = router;

@@ -379,7 +379,10 @@ exports.getDashboard = async (req, res) => {
 
     // 1. Fetch Partner Basic Info
     const partnerRes = await pool.query(
-      `SELECT id, name, email, phone, location FROM partners WHERE id = $1`,
+      `SELECT id, name, email, phone, logo, website, about,
+              provider_type, location, services, operating_hours,
+              rating, review_count, views_count
+       FROM partners WHERE id = $1`,
       [partnerId]
     );
 
@@ -403,7 +406,8 @@ exports.getDashboard = async (req, res) => {
     let inquiries = [];
     try {
       const inquiriesRes = await pool.query(
-        `SELECT * FROM inquiries WHERE partner_id = $1 OR partner_id IS NULL ORDER BY created_at DESC`,
+        `SELECT id, partner_id, name, email, phone, message, created_at
+         FROM inquiries WHERE partner_id = $1 ORDER BY created_at DESC`,
         [partnerId]
       );
       inquiries = inquiriesRes.rows;
@@ -411,9 +415,14 @@ exports.getDashboard = async (req, res) => {
       console.warn("Inquiries query warning:", err.message);
     }
 
+    const dashboardPartner = partnerRes.rows[0];
+    if (dashboardPartner.logo && dashboardPartner.logo.startsWith("/uploads")) {
+      dashboardPartner.logo = `${req.protocol}://${req.get("host")}${dashboardPartner.logo}`;
+    }
+
     res.status(200).json({
       success: true,
-      partner: partnerRes.rows[0],
+      partner: dashboardPartner,
       listings: listings,
       inquiries: inquiries,
     });
@@ -434,8 +443,10 @@ exports.getPartnerById = async (req, res) => {
       `SELECT id, name, email, phone, logo, website, about, 
               provider_type, country, status, is_published, 
               location, services, operating_hours, created_at 
-       FROM partners 
-       WHERE id = $1`,
+       FROM partners
+       WHERE id = $1
+         AND status = 'approved'
+         AND COALESCE(is_published, true) = true`,
       [id]
     );
 
@@ -455,5 +466,46 @@ exports.getPartnerById = async (req, res) => {
   } catch (error) {
     console.error("GetPartnerById Error:", error);
     res.status(500).json({ success: false, message: "Failed to fetch partner details" });
+  }
+};
+
+// =============================================
+// UPDATE SERVICE PRICING
+// =============================================
+exports.updatePricing = async (req, res) => {
+  try {
+    const { pricing } = req.body;
+
+    if (!Array.isArray(pricing) || pricing.length === 0) {
+      return res.status(400).json({ success: false, message: "Pricing must be a non-empty array" });
+    }
+
+    const normalizedPricing = pricing
+      .filter((item) => item && String(item.service || '').trim() && String(item.price || '').trim())
+      .map((item) => ({
+        service: String(item.service).trim(),
+        price: String(item.price).trim(),
+      }));
+
+    if (normalizedPricing.length === 0) {
+      return res.status(400).json({ success: false, message: "Each pricing item needs a service and price" });
+    }
+
+    const result = await pool.query(
+      `UPDATE partners SET pricing = $1 WHERE id = $2 RETURNING pricing`,
+      [JSON.stringify(normalizedPricing), req.user.id]
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Pricing updated successfully",
+      data: { pricing: result.rows[0]?.pricing },
+    });
+  } catch (error) {
+    if (error.message && error.message.includes('pricing')) {
+      await pool.query(`ALTER TABLE partners ADD COLUMN IF NOT EXISTS pricing TEXT`);
+      return exports.updatePricing(req, res);
+    }
+    res.status(500).json({ success: false, message: error.message || "Failed to update pricing" });
   }
 };
